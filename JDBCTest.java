@@ -28,16 +28,16 @@ public class JDBCTest {
                 input = in.nextLine();
                 boolean res = false;
                 switch(input) {
-                    case "i":
-                        System.out.println("insert");
+                    case "c":
+                        System.out.println("create");
                         res = insert(myStatement);
                         if(res)
-                            System.out.println("insert successful!");
+                            System.out.println("create successful!");
                         else
-                            System.out.println("insert aborted!");
+                            System.out.println("create aborted!");
                         break;
-                    case "r":
-                        System.out.println("remove");
+                    case "d":
+                        System.out.println("delete");
                         res = delete(myStatement);
                         if(res)
                             System.out.println("delete successful!");
@@ -52,11 +52,11 @@ public class JDBCTest {
                         else
                             System.out.println("update aborted!");
                         break;
-                    case "p":
+                    case "r":
                         printTable(myStatement, "employees");
                         break;
                     case "pr":
-                        printResult(query(myStatement, "employees", "id > 100"));
+                        printResult(query(myStatement, "*", "employees", "id > 100"));
                         break;
                     case "h":
                         usage();
@@ -67,8 +67,8 @@ public class JDBCTest {
                         usage();
                         break;
                 }
-                System.out.println();
-                printTable(myStatement, "employees");
+                // System.out.println();
+                // printTable(myStatement, "employees");
                 System.out.println();
             }
             
@@ -198,14 +198,51 @@ public class JDBCTest {
         }
         catch(SQLException e) {return false;}
     }
-
+    
     public static void printResult(ResultSet r) {
         if(r == null) return;
-        ResultSetMetaData md = null;
+        
         try {
-            md = r.getMetaData();
+            ResultSetMetaData md = r.getMetaData();
+            int[] columns = new int[md.getColumnCount()];
+            StringBuilder tableHeadFormat = new StringBuilder();
+            StringBuilder tableDataFormat = new StringBuilder();
+            Object[] columnNames = new String[columns.length];
             for(int i = 1; i <= md.getColumnCount(); i++) {
-                System.out.println(md.getColumnName(i) + " " + md.getColumnType(i));
+                tableHeadFormat.append("| ");
+                tableDataFormat.append("| ");
+                columns[i-1] = md.getColumnType(i);
+                if(md.getColumnType(i) == Types.INTEGER) {
+                    tableHeadFormat.append("%-5s");
+                    tableDataFormat.append("%-5d");
+                }
+                else {
+                    tableHeadFormat.append("%-11s");
+                    tableDataFormat.append("%-11s");
+                }
+                columnNames[i-1] = md.getColumnName(i);
+                tableHeadFormat.append(" ");
+                tableDataFormat.append(" ");
+            }
+            tableHeadFormat.append("|\n");
+            tableDataFormat.append("|\n");
+            System.out.format(tableHeadFormat.toString(), columnNames);
+            
+            while(r.next()) {
+                Object[] output = new Object[columns.length];
+                for(int i = 0; i < columns.length; i++) {
+                    switch(columns[i]) {
+                        case Types.INTEGER:
+                            output[i] = r.getInt(i + 1);
+                            break;
+                        case Types.VARCHAR:
+                            output[i] = r.getString(i + 1);
+                            break;
+                        default:
+                            output[i] = " - ";
+                    }
+                }
+                System.out.format(tableDataFormat.toString(), output);
             }
         }
         catch(SQLException e) {
@@ -213,8 +250,8 @@ public class JDBCTest {
         }
     }
 
-    public static ResultSet query(Statement s, String table, String condition) {
-        String query = "select first from " + table + " WHERE " + condition;
+    public static ResultSet query(Statement s, String selection, String table, String condition) {
+        String query = "select " + selection + " from " + table + " WHERE " + condition;
         try {
             return s.executeQuery(query);
         }
@@ -224,20 +261,11 @@ public class JDBCTest {
         }
     }
 
-    // query table, parse and print results
+    // prints the entire table
     public static void printTable(Statement s, String table) {
-        String tableHeaderFormat = "| %-5s | %-11s | %-11s | %-5s |\n";
-        String tableDataFormat = "| %-5d | %-11s | %-11s | %-5d |\n";
-        System.out.format(tableHeaderFormat, "id",
-                                            "first name",
-                                            "last name", 
-                                            "age");
         try {
             ResultSet r = s.executeQuery("select * from " + table);
-            while(r.next()) {
-                // you can get values by column name or column number (starting from 1!)
-                System.out.format(tableDataFormat, r.getInt(1), r.getString(2), r.getString("last"), r.getInt("age"));
-            }
+            printResult(r);
         }
         catch(SQLException e) {}
     }
@@ -258,10 +286,10 @@ public class JDBCTest {
 
     public static void usage() {
         System.out.println("Here are the command options:");
-        System.out.println("    p - prints the table");
         System.out.println("    c - creates a new entry");
-        System.out.println("    r - removes an entry");
+        System.out.println("    r - prints the table");
         System.out.println("    u - updates an entry");
+        System.out.println("    d - deletes an entry");
         System.out.println("    h - prints the usage");
         System.out.println();
     }
