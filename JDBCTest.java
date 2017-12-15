@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.sql.*;
 import edu.cofc.grader.*;
 import java.util.Scanner;
+import java.util.Arrays;
+import java.util.List;
 
 public class JDBCTest {
     public static final String CANCEL = "x"; 
@@ -40,8 +42,8 @@ public class JDBCTest {
 
     public static boolean parser(Statement myStatement, String input) {
         boolean res = false;
-        String[] inputFlags = input.split(" ");
-        switch(inputFlags[0]) {
+        List<String> inputFlags = Arrays.asList(input.split(" "));
+        switch(inputFlags.get(0)) {
             case "c":
                 System.out.println("create");
                 res = insert(myStatement);
@@ -67,27 +69,26 @@ public class JDBCTest {
                     System.out.println("update aborted!");
                 break;
             case "r":
-                String arg;
+                printTable(myStatement, "employees");
+                break;
+            case "h":
+                usage();
+                break;
+            case "o":
+                String arg1;
+                String arg2;
+                QueryBuilder qb = new QueryBuilder();
+                qb.setTable("employees");
                 try {
-                    arg = inputFlags[1];
+                    arg1 = inputFlags.get(1);
+                    arg2 = inputFlags.get(2);
                 }
                 catch(Exception e) {
                     printTable(myStatement, "employees");
                     break;
                 }
-                switch(arg) {
-                    case "asc":
-                        System.out.println("asc");
-                        break;
-                    default:
-                        System.out.println("default");
-                }
-                break;
-            case "pr":
-                printResult(query(myStatement, "*", "employees", "id > 100"));
-                break;
-            case "h":
-                usage();
+                qb.setOrderBy(arg1 + " " + arg2);
+                printResult(query(myStatement, qb.build()));
                 break;
             case "clear":
                 clear();
@@ -226,6 +227,7 @@ public class JDBCTest {
         
         try {
             ResultSetMetaData md = r.getMetaData();
+            System.out.println("\nTabel: " + md.getTableName(1));
             int[] columns = new int[md.getColumnCount()];
             StringBuilder tableHeadFormat = new StringBuilder();
             StringBuilder tableDataFormat = new StringBuilder();
@@ -272,18 +274,7 @@ public class JDBCTest {
         }
     }
 
-    public static ResultSet query(Statement s, String selection, String table, String condition, String order) {
-        QueryBuilder qb = new QueryBuilder();
-        qb.setSelectedColumns(selection)
-          .setTable(table)
-          .setWhere(condition)
-          .setOrderBy(order);
-        if(condition == null)
-            query = "select " + selection + " from " + table + " ORDER BY id ASC";
-        else if(order == null)
-            query = "select " + selection + " from " + table + " WHERE " + condition + " ORDER BY id ASC";
-        else
-            query = "select " + selection + " from " + table + " WHERE " + condition + " ORDER BY " + order;
+    public static ResultSet query(Statement s, String query) {
         try {
             return s.executeQuery(query);
         }
@@ -293,17 +284,12 @@ public class JDBCTest {
         }
     }
 
-    public static ResultSet query(Statement s, String selection, String table, String condition) {
-        return query(s, selection, table, condition, null);
-    }
-
-    public static ResultSet query(Statement s, String selection, String table) {
-        return query(s, selection, table, null, null);
-    }
-
     // prints the entire table
     public static void printTable(Statement s, String table) {
-        ResultSet r = query(s, "*", table);
+        QueryBuilder qb = new QueryBuilder();
+        ResultSet r = query(s, qb.setTable(table)
+                                 .setOrderBy("id asc")
+                                 .build());
         printResult(r);
     }
 
@@ -333,12 +319,16 @@ public class JDBCTest {
         System.out.println("Here are the command options:");
         System.out.println("    c - creates a new entry");
         System.out.println("    r - prints the table");
-        System.out.println("    r [order column] [asc/des] - prints the table");
+        System.out.println("    u - updates an entry");
+        System.out.println("    d - deletes an entry");
+        System.out.println("    o [order column] [asc/desc] - orders the table");
         System.out.println("             |          -> Ascending or descending");
         System.out.println("             |             -> (Default if omitted is ascending)");
         System.out.println("             -> the column by which to order");
-        System.out.println("    u - updates an entry");
-        System.out.println("    d - deletes an entry");
+        // System.out.println("    f [field1] [field1] ... [fieldN] - filters the table by field");
+        // System.out.println("             |          -> Ascending or descending");
+        // System.out.println("             |             -> (Default if omitted is ascending)");
+        // System.out.println("             -> the column by which to order");
         System.out.println("    h - prints the usage");
         System.out.println();
     }
