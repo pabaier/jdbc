@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.sql.*;
 import edu.cofc.grader.*;
 import java.util.Scanner;
@@ -23,60 +24,81 @@ public class JDBCTest {
             Connection myConnection  = DriverManager.getConnection(dbURL, user, pass);
             Statement myStatement = myConnection.createStatement();
             String input = "";
-            while(!input.equalsIgnoreCase("q")) {
+            boolean play = true;
+            while(play) {
                 System.out.print("What would you like to do? (type '" + CANCEL + "' any time to cancel) ");
                 input = in.nextLine();
-                boolean res = false;
-                switch(input) {
-                    case "c":
-                        System.out.println("create");
-                        res = insert(myStatement);
-                        if(res)
-                            System.out.println("create successful!");
-                        else
-                            System.out.println("create aborted!");
-                        break;
-                    case "d":
-                        System.out.println("delete");
-                        res = delete(myStatement);
-                        if(res)
-                            System.out.println("delete successful!");
-                        else
-                            System.out.println("delete aborted!");
-                        break;
-                    case "u":
-                        System.out.println("update");
-                        res = update(myStatement);
-                        if(res)
-                            System.out.println("update successful!");
-                        else
-                            System.out.println("update aborted!");
-                        break;
-                    case "r":
-                        printTable(myStatement, "employees");
-                        break;
-                    case "pr":
-                        printResult(query(myStatement, "*", "employees", "id > 100"));
-                        break;
-                    case "h":
-                        usage();
-                        break;
-                    case CANCEL:
-                        return;
-                    default:
-                        usage();
-                        break;
-                }
-                // System.out.println();
-                // printTable(myStatement, "employees");
+                play = parser(myStatement, input);
                 System.out.println();
-            }
-            
+            } 
         }
         catch(SQLException | ClassNotFoundException e) {
             System.out.println(e);
         }
         
+    }
+
+    public static boolean parser(Statement myStatement, String input) {
+        boolean res = false;
+        String[] inputFlags = input.split(" ");
+        switch(inputFlags[0]) {
+            case "c":
+                System.out.println("create");
+                res = insert(myStatement);
+                if(res)
+                    System.out.println("create successful!");
+                else
+                    System.out.println("create aborted!");
+                break;
+            case "d":
+                System.out.println("delete");
+                res = delete(myStatement);
+                if(res)
+                    System.out.println("delete successful!");
+                else
+                    System.out.println("delete aborted!");
+                break;
+            case "u":
+                System.out.println("update");
+                res = update(myStatement);
+                if(res)
+                    System.out.println("update successful!");
+                else
+                    System.out.println("update aborted!");
+                break;
+            case "r":
+                String arg;
+                try {
+                    arg = inputFlags[1];
+                }
+                catch(Exception e) {
+                    printTable(myStatement, "employees");
+                    break;
+                }
+                switch(arg) {
+                    case "asc":
+                        System.out.println("asc");
+                        break;
+                    default:
+                        System.out.println("default");
+                }
+                break;
+            case "pr":
+                printResult(query(myStatement, "*", "employees", "id > 100"));
+                break;
+            case "h":
+                usage();
+                break;
+            case "clear":
+                clear();
+                break;
+            case CANCEL:
+                return false;
+            default:
+                usage();
+                break;
+        }
+        return true;
     }
 
     public static boolean delete(Statement s) {
@@ -198,7 +220,7 @@ public class JDBCTest {
         }
         catch(SQLException e) {return false;}
     }
-    
+
     public static void printResult(ResultSet r) {
         if(r == null) return;
         
@@ -250,8 +272,18 @@ public class JDBCTest {
         }
     }
 
-    public static ResultSet query(Statement s, String selection, String table, String condition) {
-        String query = "select " + selection + " from " + table + " WHERE " + condition;
+    public static ResultSet query(Statement s, String selection, String table, String condition, String order) {
+        QueryBuilder qb = new QueryBuilder();
+        qb.setSelectedColumns(selection)
+          .setTable(table)
+          .setWhere(condition)
+          .setOrderBy(order);
+        if(condition == null)
+            query = "select " + selection + " from " + table + " ORDER BY id ASC";
+        else if(order == null)
+            query = "select " + selection + " from " + table + " WHERE " + condition + " ORDER BY id ASC";
+        else
+            query = "select " + selection + " from " + table + " WHERE " + condition + " ORDER BY " + order;
         try {
             return s.executeQuery(query);
         }
@@ -261,13 +293,18 @@ public class JDBCTest {
         }
     }
 
+    public static ResultSet query(Statement s, String selection, String table, String condition) {
+        return query(s, selection, table, condition, null);
+    }
+
+    public static ResultSet query(Statement s, String selection, String table) {
+        return query(s, selection, table, null, null);
+    }
+
     // prints the entire table
     public static void printTable(Statement s, String table) {
-        try {
-            ResultSet r = s.executeQuery("select * from " + table);
-            printResult(r);
-        }
-        catch(SQLException e) {}
+        ResultSet r = query(s, "*", table);
+        printResult(r);
     }
 
     // creates table - can only run once
@@ -284,14 +321,28 @@ public class JDBCTest {
             catch(SQLException e){}
     }
 
+    public static void clear() {
+        // String ANSI_CLS = "\033c";
+        String ANSI_CLS = "\u001b[2J";
+        String ANSI_HOME = "\u001b[H";
+        System.out.print(ANSI_CLS + ANSI_HOME);
+        System.out.flush();
+    }
+
     public static void usage() {
         System.out.println("Here are the command options:");
         System.out.println("    c - creates a new entry");
         System.out.println("    r - prints the table");
+        System.out.println("    r [order column] [asc/des] - prints the table");
+        System.out.println("             |          -> Ascending or descending");
+        System.out.println("             |             -> (Default if omitted is ascending)");
+        System.out.println("             -> the column by which to order");
         System.out.println("    u - updates an entry");
         System.out.println("    d - deletes an entry");
         System.out.println("    h - prints the usage");
         System.out.println();
     }
+
+
 
 }
