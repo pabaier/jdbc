@@ -40,6 +40,7 @@ public class QueryBuilder {
         return this;
     }
 
+    // SELECT *columns* FROM *table* WHERE *where* ORDER BY *orderBy* 
     public String build() {
         StringBuilder s = new StringBuilder("Select ");
         if(distinct)
@@ -47,7 +48,7 @@ public class QueryBuilder {
         s.append(columns + " ");
         s.append("FROM " + table + " ");
         if(where != null)
-            s.append("WHERE " + where);
+            s.append("WHERE " + where + " ");
         if(orderBy != null)
             s.append("ORDER BY " + orderBy);
         

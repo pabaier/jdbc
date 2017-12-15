@@ -4,8 +4,11 @@ import edu.cofc.grader.*;
 import java.util.Scanner;
 import java.util.Arrays;
 import java.util.List;
+import static java.util.stream.Collectors.*;
+
 
 public class JDBCTest {
+    public static final String TABLENAME = "employees";
     public static final String CANCEL = "x"; 
 
     public static void main(String[] args) {
@@ -42,6 +45,8 @@ public class JDBCTest {
 
     public static boolean parser(Statement myStatement, String input) {
         boolean res = false;
+        QueryBuilder qb;
+        StringBuilder s;
         List<String> inputFlags = Arrays.asList(input.split(" "));
         switch(inputFlags.get(0)) {
             case "c":
@@ -69,7 +74,7 @@ public class JDBCTest {
                     System.out.println("update aborted!");
                 break;
             case "r":
-                printTable(myStatement, "employees");
+                printTable(myStatement, TABLENAME);
                 break;
             case "h":
                 usage();
@@ -77,18 +82,45 @@ public class JDBCTest {
             case "o":
                 String arg1;
                 String arg2;
-                QueryBuilder qb = new QueryBuilder();
-                qb.setTable("employees");
+                qb = new QueryBuilder();
+                qb.setTable(TABLENAME);
                 try {
                     arg1 = inputFlags.get(1);
                     arg2 = inputFlags.get(2);
                 }
                 catch(Exception e) {
-                    printTable(myStatement, "employees");
+                    printTable(myStatement, TABLENAME);
                     break;
                 }
                 qb.setOrderBy(arg1 + " " + arg2);
                 printResult(query(myStatement, qb.build()));
+                break;
+            case "s":
+                s = new StringBuilder();
+                qb = new QueryBuilder();
+                qb.setTable(TABLENAME)
+                  .setOrderBy("id");
+                inputFlags.stream()
+                          .filter(e -> !e.equals(inputFlags.get(0)))
+                          .forEach(s::append);
+                qb.setSelectedColumns(s.toString());
+                printResult(query(myStatement, qb.build()));
+                break;
+            case "w":
+                try {
+                    s = new StringBuilder();
+                    inputFlags.stream()
+                              .filter(e -> !e.equals(inputFlags.get(0)))
+                              .forEach(e -> s.append(e + " "));
+                    qb = new QueryBuilder();
+                    qb.setTable(TABLENAME)
+                      .setOrderBy(inputFlags.get(1))
+                      .setWhere(s.toString());
+                    printResult(query(myStatement, qb.build()));
+                }
+                catch(Exception e) {
+                    printTable(myStatement, TABLENAME);
+                }
                 break;
             case "clear":
                 clear();
@@ -321,14 +353,12 @@ public class JDBCTest {
         System.out.println("    r - prints the table");
         System.out.println("    u - updates an entry");
         System.out.println("    d - deletes an entry");
+        System.out.println("    s [field1], [field1], ..., [fieldN] - view only selected fields");
         System.out.println("    o [order column] [asc/desc] - orders the table");
         System.out.println("             |          -> Ascending or descending");
         System.out.println("             |             -> (Default if omitted is ascending)");
         System.out.println("             -> the column by which to order");
-        // System.out.println("    f [field1] [field1] ... [fieldN] - filters the table by field");
-        // System.out.println("             |          -> Ascending or descending");
-        // System.out.println("             |             -> (Default if omitted is ascending)");
-        // System.out.println("             -> the column by which to order");
+        System.out.println("    w [conditions] - prints only the values meeting the conditions");
         System.out.println("    h - prints the usage");
         System.out.println();
     }
